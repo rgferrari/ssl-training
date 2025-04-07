@@ -10,13 +10,13 @@ All agents should be imported in [agents/\_\_init\_\_.py](agents/__init__.py).
 
 The new agent should be included in the methods dict in [main](main.py), so it can be called as an argument.
 
-## Creating an Env
+## Creating an Environment
 
 All environments should implement the rSoccer class [SSLBaseEnv](https://github.com/robocin/rSoccer/blob/main/rsoccer_gym/ssl/ssl_gym_base.py).
 
 All environments should be imported and registered into gymnasium in [playgrounds/\_\_init\_\_.py](playgrounds/__init__.py).
 
-## Train
+## Training
 
 Fill all the arguments into the [hyperparameters.json](hyperparameters.json) file.
 
@@ -42,9 +42,12 @@ In another terminal, run ```tensorboard --logdir=logs``` to start tensorboard, s
 
 Run ```make eval``` to run only the eval and watch training result.
 
+The logs are saved in the logs/<agent_name>/<agent_name>-v_\<version> folder.
+
+The models are saved in the models/<agent_name>/<agent_name>-v_\<version> folder.
 
 ## Available Agents
 - [SacAgent](agents/sac_agent.py)
 
-## Available Playgrounds
+## Available Environments
 - [SSLReachBall-v0](playgrounds/reach_ball.py)
