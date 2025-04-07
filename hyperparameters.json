@@ -1,0 +1,11 @@
+{
+    "method": "SAC",
+    "name": "ball_reacher_sac",
+    "env": "SSLReachBall-v0",
+    "episodes": 100000000,
+    "version": "4",
+    "num_envs": 16,
+    "batch_size": 1024,
+    "learning_rate": 0.001,
+    "model_path": "models/ball_reacher_sac/ball_reacher_sac-v_3"
+}
