@@ -31,7 +31,7 @@ def main():
             if not getattr(args, key, None):
                 setattr(args, key, value)
 
-    required_args = [
+    required_args_training = [
         "method", 
         "name", 
         "env", 
@@ -42,12 +42,27 @@ def main():
         "learning_rate"
     ]
 
-    missing_args = [arg for arg in required_args if not getattr(args, arg, None)]
-    if missing_args:
-        parser.error(f"The following arguments are required: {', '.join(missing_args)}")
-        print("Hyperparameters:")
-        for arg, value in vars(args).items():
-            print(f"{arg}: {value}")
+    required_args_eval = [
+        "method", 
+        "name", 
+        "env", 
+        "version"
+    ]
+
+    missing_args = [arg for arg in required_args_training if not getattr(args, arg, None)]
+    if args.train:
+        if missing_args:
+            parser.error(f"The following arguments are required: {', '.join(missing_args)}")
+            print("Hyperparameters:")
+            for arg, value in vars(args).items():
+                print(f"{arg}: {value}")
+    else:
+        missing_args = [arg for arg in required_args_eval if not getattr(args, arg, None)]
+        if missing_args:
+            parser.error(f"The following arguments are required: {', '.join(missing_args)}")
+            print("Hyperparameters:")
+            for arg, value in vars(args).items():
+                print(f"{arg}: {value}")
 
     agent = methods[args.method](
         env_name=args.env,

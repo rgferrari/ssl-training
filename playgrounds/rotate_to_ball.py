@@ -1,32 +1,21 @@
-import pygame
 import numpy as np
 import gymnasium as gym
 
 from rsoccer_gym.Entities import Ball, Frame, Robot
 from rsoccer_gym.ssl.ssl_gym_base import SSLBaseEnv
-from rsoccer_gym.Render.utils import COLORS
-from dataclasses import dataclass
 
-
-@dataclass
-class Position:
-    x: float
-    y: float
-
-
-class SSLReachBallEnv(SSLBaseEnv):
+class SSLRotateToBallEnv(SSLBaseEnv):
     """The SSL robot needs to reach the ball
 
 
     Description:
 
     Observation:
-        Type: Box(13,)
+        Type: Box(11,)
         Normalized Bounds to [-1.2, 1.2]
         Num      Observation normalized
         0->3     Ball [X, Y, V_x, V_y]
         4->10    Robot [X, Y, V_x, V_y, sin_theta, cos_theta, v_theta]
-        11->12   Target [X, Y]
 
 
     Actions:
@@ -63,7 +52,7 @@ class SSLReachBallEnv(SSLBaseEnv):
                                            shape=(n_actions,), 
                                            dtype=np.float32)
         
-        n_obs = 13
+        n_obs = 11
         self.observation_space = gym.spaces.Box(
             low=-self.NORM_BOUNDS,
             high=self.NORM_BOUNDS,
@@ -72,15 +61,10 @@ class SSLReachBallEnv(SSLBaseEnv):
         )
 
         self.max_steps = max_steps
-        self.target_position = Position(x=0.0, y=0.0)
 
     def _get_commands(self, action):
         """returns a list of commands of type List[Robot] from type action_space action"""
-        return [Robot(yellow=False, 
-                      id=0, 
-                      v_x=action[0], 
-                      v_y=action[1], 
-                      v_theta=action[2])]
+        return [Robot(yellow=False, id=0, v_x=action[0], v_y=action[1], v_theta=action[2])]
 
     def _frame_to_observations(self):
         """returns a type observation_space observation from a type List[Robot] state"""
@@ -96,20 +80,16 @@ class SSLReachBallEnv(SSLBaseEnv):
             self.norm_v(robot.v_y),
             np.sin(np.deg2rad(robot.theta)),
             np.cos(np.deg2rad(robot.theta)),
-            self.norm_w(robot.v_theta),
-            self.norm_pos(self.target_position.x),
-            self.norm_pos(self.target_position.y)
+            self.norm_w(robot.v_theta)
         ], dtype=np.float32)
     
     def _calculate_reward_and_done(self):
         """returns reward value and done flag from type List[Robot] state"""
-        ball, robot = self.frame.ball, self.frame.robots_blue[0]
-
         reward = 0
         done = False
-
+        
         # Reward if touched the ball
-        if ball.v_x > 0.05 or ball.v_y > 0.05:
+        if self._robot_is_facing_ball():
             reward += 10
             done = True
 
@@ -119,21 +99,6 @@ class SSLReachBallEnv(SSLBaseEnv):
         if done:
             # Reward negatively for time spent
             reward -= self.steps * 0.01
-
-            # Reward if robot is facing ball
-            if self._robot_is_facing(ball):
-                reward += 5
-
-            if self._robot_is_facing(self.target_position):
-                reward += 5
-
-
-            distance_robot_ball = np.linalg.norm(
-                np.array([robot.x - ball.x, robot.y - ball.y])
-            )
-
-            # Reward if robot is getting closer to ball
-            reward += (self.distance_robot_ball_start - distance_robot_ball) * 5
 
         return reward, done
         
@@ -145,11 +110,6 @@ class SSLReachBallEnv(SSLBaseEnv):
 
         pos_frame.ball = Ball(
             x=np.random.uniform(-self.NORM_BOUNDS, self.NORM_BOUNDS), 
-            y=np.random.uniform(-self.NORM_BOUNDS, self.NORM_BOUNDS)
-        )
-
-        self.target_position = Position(
-            x=np.random.uniform(-self.NORM_BOUNDS, self.NORM_BOUNDS),
             y=np.random.uniform(-self.NORM_BOUNDS, self.NORM_BOUNDS)
         )
 
@@ -179,35 +139,16 @@ class SSLReachBallEnv(SSLBaseEnv):
                 break
 
         return pos_frame
+    
 
-
-    def _robot_is_facing(self, target):
-        """returns True if robot is facing target"""
-        robot = self.frame.robots_blue[0]
+    def _robot_is_facing_ball(self):
+        """returns True if robot is facing ball"""
+        robot, ball = self.frame.robots_blue[0], self.frame.ball
         theta_rad = np.deg2rad(robot.theta)
 
-        robot_to_ball_direction = np.array([target.x - robot.x, target.y - robot.y])
+        robot_to_ball_direction = np.array([ball.x - robot.x, ball.y - robot.y])
         robot_to_ball_direction /= np.linalg.norm(robot_to_ball_direction)
         robot_orientation = np.array([np.cos(theta_rad), np.sin(theta_rad)])
         dot_product = np.dot(robot_orientation, robot_to_ball_direction)
 
         return dot_product > 0.9
-    
-    
-    def _draw_target(self, target_pos, screen):
-        target_radius = self.field.ball_radius * self.field_renderer.scale
-        target_x, target_y = target_pos
-        pygame.draw.circle(screen, COLORS["RED"], (target_x, target_y), target_radius)
-        pygame.draw.circle(screen, COLORS["BLACK"], (target_x, target_y), target_radius, 1)
-
-    
-    def _render(self):
-        super()._render()
-        def pos_transform(pos_x, pos_y):
-            return (
-                int(pos_x * self.field_renderer.scale + self.field_renderer.center_x),
-                int(pos_y * self.field_renderer.scale + self.field_renderer.center_y),
-            )
-        
-        target_x, target_y = pos_transform(self.target_position.x, self.target_position.y)
-        self._draw_target([target_x, target_y], self.window_surface)
