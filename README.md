@@ -1,53 +1,107 @@
+# SSL Training
+
+A framework for training Reinforcement Learning agents in simulated robot soccer environments.
+
+---
+
 ## Setup
 
-Create the local venv and install all dependencies by running ```make all```
+Set up your environment and install all dependencies:
 
-## Creating an Agent
+```bash
+make all
+```
 
-All agents should implement the class [AgentBase](/agents/agent_base.py).
+This will create a virtual environment locally and install everything listed in the `setup.py`.
 
-All agents should be imported in [agents/\_\_init\_\_.py](agents/__init__.py).
+---
 
-The new agent should be included in the methods dict in [main](main.py), so it can be called as an argument.
+## Creating a New Agent
 
-## Creating an Environment
+To add a new RL agent:
 
-All environments should implement the rSoccer class [SSLBaseEnv](https://github.com/robocin/rSoccer/blob/main/rsoccer_gym/ssl/ssl_gym_base.py).
+1. **Implement** the agent by inheriting from [`AgentBase`](agents/agent_base.py).
+2. **Import** your new agent class in [`agents/__init__.py`](agents/__init__.py).
+3. **Register** the agent in the `methods` dictionary inside [`main.py`](main.py) so it can be selected from the CLI.
 
-All environments should be imported and registered into gymnasium in [playgrounds/\_\_init\_\_.py](playgrounds/__init__.py).
+---
+
+## Creating a New Environment
+
+To define a new simulation environment:
+
+1. **Implement** your environment by inheriting from [`SSLBaseEnv`](https://github.com/robocin/rSoccer/blob/main/rsoccer_gym/ssl/ssl_gym_base.py).
+2. **Import and register** it in [`playgrounds/__init__.py`](playgrounds/__init__.py) using `gymnasium`.
+
+---
 
 ## Training
 
-Fill all the arguments into the [hyperparameters.json](hyperparameters.json) file.
+### 1. Configure Hyperparameters
 
-The following arguments are required:
+Edit [`hyperparameters.json`](hyperparameters.json) with the following required fields:
+
+```json
+{
+  "method": "Name of RL method",
+  "name": "Name of the agent",
+  "env": "Name of the environment",
+  "version": "Environment version",
+  "episodes": "Number of episodes for training"
+  "num_envs": "Number of environments to run in parallel"
+  "batch_size": "Batch size for training" 
+  "learning_rate": "Learning rate for the optimizer"
+}
 ```
-"method": Name of RL method
-"name": Name of the agent
-"env": Name of the environment
-"version": Version of the environment
-"episodes": Number of episodes for training
-"num_envs": Number of environments to run in parallel
-"batch_size": Batch size for training 
-"learning_rate": Learning rate for the optimizer
+
+**Optional:**  
+Add `"model_path"` to fine-tune from an existing model.
+
+For additional configuration options, check [`main.py`](main.py).
+
+---
+
+### 2. Start Training
+
+```bash
+make train
 ```
 
-You can also add the argument ```"model_path"``` if you want to finetune some existing model.
+### 3. Monitor with TensorBoard
 
-Check the [main](main.py) to see the other optional arguments.
+In a separate terminal:
 
-Run ```make train``` to start the training.
+```bash
+tensorboard --logdir=logs
+```
 
-In another terminal, run ```tensorboard --logdir=logs``` to start tensorboard, so you can keep up with the training charts.
+This will show you real-time training metrics and performance graphs.
 
-Run ```make eval``` to run only the eval and watch training result.
+---
 
-The logs are saved in the logs/<agent_name>/<agent_name>-v_\<version> folder.
+### 4. Run Evaluation Only
 
-The models are saved in the models/<agent_name>/<agent_name>-v_\<version> folder.
+To evaluate the model:
+
+```bash
+make eval
+```
+
+---
+
+## Outputs
+
+- **Logs:** `logs/<agent_name>/<agent_name>-v_<version>/`
+- **Models:** `models/<agent_name>/<agent_name>-v_<version>/`
+
+---
 
 ## Available Agents
-- [SacAgent](agents/sac_agent.py)
+
+- [`SacAgent`](agents/sac_agent.py)
+
+---
 
 ## Available Environments
-- [SSLReachBall-v0](playgrounds/reach_ball.py)
+
+- [`SSLReachBall-v0`](playgrounds/reach_ball.py)
