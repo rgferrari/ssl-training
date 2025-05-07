@@ -1,0 +1,3 @@
+[submodule "rSim"]
+	path = rSim
+	url = https://github.com/mggmauricio/rSim.git
