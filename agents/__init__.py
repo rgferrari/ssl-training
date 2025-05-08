@@ -3,3 +3,4 @@ import playgrounds
 
 from agents.agent_base import AgentBase
 from agents.sac_agent import SACAgent
+from agents.ppo_agent import PPOAgent

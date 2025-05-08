@@ -6,6 +6,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from torch import nn
 from torch.optim import Adam
+import time
 
 from agents import AgentBase
 
@@ -17,17 +18,25 @@ class SACAgent(AgentBase):
               num_envs=1, 
               batch_size=256, 
               learning_rate=1e-4):
-        env = SubprocVecEnv([self._make_env for _ in range(num_envs)])
+        print("\n=== Configuração do Treinamento ===")
+        print(f"Total de episódios: {episodes}")
+        print(f"Número de ambientes: {num_envs}")
+        print(f"Batch size: {batch_size}")
+        print(f"Learning rate: {learning_rate}")
+        print("================================\n")
 
+        env = SubprocVecEnv([self._make_env for _ in range(num_envs)])
         new_logger = configure(self.log_dir, ["stdout", "tensorboard"])
 
         if model_path:
+            print(f"Carregando modelo de: {model_path}")
             model = SAC.load(
                 path=model_path, 
                 env=env,
                 device='cuda'    
             )
         else:
+            print("Criando novo modelo")
             model = SAC(
                 'MlpPolicy',
                 env,
@@ -37,7 +46,7 @@ class SACAgent(AgentBase):
                     optimizer_class=Adam
                 ),
                 batch_size=batch_size, 
-                verbose=0,
+                verbose=1,  # Mudado para 1 para mostrar mais informações
                 device='cuda',
                 learning_rate=learning_rate,
                 ent_coef='auto_0.1',
@@ -52,10 +61,26 @@ class SACAgent(AgentBase):
             log_path=self.log_dir,
             eval_freq=5000,
             deterministic=True,
-            render=False
+            render=False,
+            verbose=1  # Mudado para 1 para mostrar mais informações
         )
 
-        model.learn(total_timesteps=episodes, progress_bar=True, callback=eval_callback)
+        print("\n=== Iniciando Treinamento ===")
+        start_time = time.time()
+        
+        model.learn(
+            total_timesteps=episodes,
+            progress_bar=True,
+            callback=eval_callback,
+            log_interval=100  # Log a cada 100 steps
+        )
+        
+        elapsed_time = time.time() - start_time
+        print("\n=== Treinamento Concluído ===")
+        print(f"Tempo total: {elapsed_time/60:.1f} minutos")
+        print(f"Steps/segundo: {episodes/elapsed_time:.1f}")
+        print("============================\n")
+        
         model.save(self.model_path)
 
 
