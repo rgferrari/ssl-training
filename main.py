@@ -5,7 +5,8 @@ import agents
 
 methods = {
     "SAC": agents.SACAgent,
-    "PPO": agents.PPOAgent
+    "PPO": agents.PPOAgent,
+    "DDPG": agents.DDPGAgent
 }
 
 def main():

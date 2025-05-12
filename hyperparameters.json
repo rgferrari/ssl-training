@@ -1,9 +1,9 @@
 {
-    "method": "PPO",
-    "name": "el_reach_ball_ppo",
+    "method": "DDPG",
+    "name": "el_reach_ball_ddpg",
     "env": "ELSSLReachBall-v0",
     "episodes": 500000,
-    "version": "2",
+    "version": "1",
     "num_envs": 16,
     "batch_size": 1024,
     "learning_rate": 0.001

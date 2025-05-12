@@ -119,10 +119,10 @@ class ELSSLReachBallEnv(CustomSSLEnv):
                 self.distance_to_ball_start = distance_robot_ball
                 break
 
-        print(f"Posições iniciais:")
-        print(f"Bola: ({pos_frame.ball.x:.2f}, {pos_frame.ball.y:.2f})")
-        print(f"Robô: ({robot_x:.2f}, {robot_y:.2f})")
-        print(f"Distância inicial: {self.distance_to_ball_start:.2f}m\n")
+        # print(f"Posições iniciais:")
+        # print(f"Bola: ({pos_frame.ball.x:.2f}, {pos_frame.ball.y:.2f})")
+        # print(f"Robô: ({robot_x:.2f}, {robot_y:.2f})")
+        # print(f"Distância inicial: {self.distance_to_ball_start:.2f}m\n")
 
         return pos_frame
 
