@@ -1,6 +1,7 @@
 from playgrounds.rotate_to_ball import SSLRotateToBallEnv
 from playgrounds.reach_ball import SSLReachBallEnv
 from playgrounds.drive_ball import SSLDriveBallEnv
+from playgrounds.reach_ball_el import SSLELReachBallEnv
 from gymnasium.envs.registration import register
 
 register(
@@ -21,3 +22,8 @@ register(
     max_episode_steps=1200,
 )
 
+register(
+    id="SSLReachBallEL-v0",
+    entry_point="playgrounds:SSLELReachBallEnv",
+    max_episode_steps=1200,
+)
