@@ -1,9 +1,9 @@
 {
     "method": "SAC",
-    "name": "ball_reacher_sac_el",
-    "env": "SSLReachBallEL-v0",
-    "episodes": 10,
-    "version": "4",
+    "name": "reacher_point_sac_el",
+    "env": "SSLReachToPointEL-v0",
+    "episodes": 10000,
+    "version": "0",
     "num_envs": 16,
     "batch_size": 1024,
     "learning_rate": 0.001

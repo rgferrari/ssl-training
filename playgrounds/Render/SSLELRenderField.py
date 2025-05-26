@@ -22,7 +22,7 @@ class SSLELRenderField(SSLRenderField):
     goal_width = 0.8
     goal_depth = 0.18
     corner_arc_r = 0.01
-    _scale = 500  # Escala para renderização (ajuste conforme necessário)
+    _scale = 100  # Escala para renderização (ajuste conforme necessário)
 
 
 if __name__ == "__main__":
