@@ -21,17 +21,19 @@ class SSLELReachToPoint(SSL_EL_Env):
         Environment where the robot must reach a random target point into the EL Field
     """
     def __init__(self, render_mode=None, max_steps=1200):
-        super().__init__(render_mode=render_mode, n_robots_blue=1, n_robots_yellow=0)
+        super().__init__(render_mode=render_mode, n_robots_blue=3, n_robots_yellow=3)
         
         self.max_steps = max_steps
         self.target_position = Position(x=0.0, y=0.0)
         
-        n_actions = 3
+        # Ações: v_x, v_y, v_theta, kick_v_x, dribbler
+        n_actions = 5
         self.action_space = gym.spaces.Box(
             low=-1, high=1, shape=(n_actions,), dtype=np.float32
         )
         
-        n_obs = 48
+        # Observações: bola(4) + robô controlado(8) + outros robôs azuis(2x2) + robôs amarelos(3x2) + alvo(3) = 23
+        n_obs = 4 + 8 + 2 * (self.n_robots_blue - 1) + 2 * self.n_robots_yellow + 3
         self.observation_space = gym.spaces.Box(
             low=-self.NORM_BOUNDS,
             high=self.NORM_BOUNDS,
@@ -39,46 +41,31 @@ class SSLELReachToPoint(SSL_EL_Env):
             dtype=np.float32,
         )
 
-        self.max_v = 5
+        self.max_v = 5.0
         self.max_w = 10
+        self.kick_speed_x = 5.0
 
         # Métricas para logging
         self.episodes_metrics = {}
-        self.path_length = 0.0
-        self.velocities = np.zeros(self.max_steps, dtype=np.float32)  # Pré-alocar array
-        self.velocity_count = 0
-        self.accelerations = np.zeros(self.max_steps-1, dtype=np.float32)  # Pré-alocar array
-        self.acceleration_count = 0
-        self.positions = np.zeros((self.max_steps, 2), dtype=np.float32)  # Para armazenar posições (x,y)
-        self.position_count = 0
-        self.direction_changes = 0
-        self.last_velocity_direction = None
-
-        # Parâmetros de recompensa
-        self.reward_target_reached = 50.0
-        self.penalty_out_of_bounds = -20.0
-        self.reward_time_factor = 10.0
-        self.max_steps_per_meter = 12.0
-        self.penalty_final_speed = 10.0
-        self.penalty_final_acceleration = 5.0
-        self.success_speed_threshold = 1.0  # m/s
-
-
+        self.steps_to_target = 0
+        self.initial_distance = 0.0
         
-
-
+        # Parâmetros de recompensa
+        self.reward_target_reached = 100.0
+        self.penalty_out_of_bounds = -20.0
+        self.max_steps_per_meter = 12.0
+        self.penalty_per_step = -0.1
+        self.penalty_timeout = -30.0
 
     def _get_initial_positions_frame(self) -> Frame:
         """
         Initializes the positions of all entities for the episode.
-        For curriculum learning, always allocate space for 3 blue and 3 yellow robots.
-        Only the agent (blue[0]) will be present at the start; others will be absent (dummy values).
+        Always allocate space for 3 blue and 3 yellow robots.
+        Only the agent (blue[0]) will be actively controlled.
         """
         pos_frame = Frame()
         x_limit = self.field.length / 2 - 0.2
         y_limit = self.field.width / 2 - 0.2
-
-
 
         # Randomly sample the target position within the field limits
         self.target_position = Position(
@@ -98,40 +85,43 @@ class SSLELReachToPoint(SSL_EL_Env):
             theta=np.random.uniform(-180, 180),
         )
         
+        # Adicionar robôs azuis extras (2 e 3) em posições aleatórias
+        for i in range(1, self.n_robots_blue):
+            pos_frame.robots_blue[i] = Robot(
+                yellow=False,
+                id=i,
+                x=np.random.uniform(-x_limit, x_limit),
+                y=np.random.uniform(-y_limit, y_limit),
+                theta=np.random.uniform(-180, 180),
+            )
+        
+        # Adicionar robôs amarelos em posições aleatórias
+        pos_frame.robots_yellow = {}
+        for i in range(self.n_robots_yellow):
+            pos_frame.robots_yellow[i] = Robot(
+                yellow=True,
+                id=i,
+                x=np.random.uniform(-x_limit, x_limit),
+                y=np.random.uniform(-y_limit, y_limit),
+                theta=np.random.uniform(-180, 180),
+            )
+        
         # Resetar métricas para o novo episódio
-        self.path_length = 0.0
-        self.velocity_count = 0
-        self.acceleration_count = 0
-        self.position_count = 0
-        self.direction_changes = 0
-        self.last_velocity_direction = None
         self.steps_to_target = 0
         
         # Calcular a distância inicial entre o robô e o alvo
         self.initial_distance = np.linalg.norm([robot_x - self.target_position.x, robot_y - self.target_position.y])
         
-        # Armazenar posição inicial
-        self.positions[0] = [robot_x, robot_y]
-        self.position_count = 1
-
-        # Other blue robots are not present in this phase
-        # They will be handled as dummy in the observation
-
-        # Ball is not used, but kept for compatibility (set at origin)
+        # Ball is not used actively but kept for compatibility (set at origin)
         pos_frame.ball = Ball(x=0, y=0)
-
-        # No yellow robots present at this phase
-        pos_frame.robots_yellow = {}
 
         return pos_frame
 
     def _frame_to_observations(self):
         """
         Converts the current environment state to the observation vector.
-        For curriculum learning, always includes all 3 blue and 3 yellow robots in a fixed order.
-        Absent robots are filled with dummy values.
         Observation vector:
-        [ball(4), blue robots(3x7), yellow robots(3x7), target(2)] = 48 elements
+        [ball(4), blue[0](8), blue[1:3](2x2), yellow robots(3x2), target(3)] = 23 elements
         """
         obs = []
 
@@ -142,52 +132,73 @@ class SSLELReachToPoint(SSL_EL_Env):
             self.norm_v(ball.v_x), self.norm_v(ball.v_y)
         ])
 
-        # Blue robots (agent and teammates): always 3 slots
-        for i in range(3):
+        # Blue robot 0 (controlled agent): 8 valores
+        if 0 in self.frame.robots_blue:
+            robot = self.frame.robots_blue[0]
+            obs.extend([
+                self.norm_pos(robot.x), self.norm_pos(robot.y),
+                np.sin(np.deg2rad(robot.theta)), np.cos(np.deg2rad(robot.theta)),
+                self.norm_v(robot.v_x), self.norm_v(robot.v_y),
+                self.norm_w(robot.v_theta),
+                1 if robot.infrared else 0
+            ])
+        else:
+            # Dummy values for absent blue robot 0
+            obs.extend([0, 0, 0, 1, 0, 0, 0, 0])
+
+        # Other blue robots (teammates): only x, y
+        for i in range(1, self.n_robots_blue):
             if i in self.frame.robots_blue:
                 robot = self.frame.robots_blue[i]
                 obs.extend([
-                    self.norm_pos(robot.x), self.norm_pos(robot.y),
-                    self.norm_v(robot.v_x), self.norm_v(robot.v_y),
-                    np.sin(np.deg2rad(robot.theta)), np.cos(np.deg2rad(robot.theta)),
-                    self.norm_w(robot.v_theta)
+                    self.norm_pos(robot.x), self.norm_pos(robot.y)
                 ])
             else:
                 # Dummy values for absent blue robots
-                obs.extend([0, 0, 0, 0, 0, 1, 0])
+                obs.extend([0, 0])
 
-        # Yellow robots (opponents): always 3 slots
-        for i in range(3):
+        # Yellow robots (opponents): only x, y
+        for i in range(self.n_robots_yellow):
             if i in self.frame.robots_yellow:
                 robot = self.frame.robots_yellow[i]
                 obs.extend([
-                    self.norm_pos(robot.x), self.norm_pos(robot.y),
-                    self.norm_v(robot.v_x), self.norm_v(robot.v_y),
-                    np.sin(np.deg2rad(robot.theta)), np.cos(np.deg2rad(robot.theta)),
-                    self.norm_w(robot.v_theta)
+                    self.norm_pos(robot.x), self.norm_pos(robot.y)
                 ])
             else:
                 # Dummy values for absent yellow robots
-                obs.extend([0, 0, 0, 0, 0, 1, 0])
+                obs.extend([0, 0])
 
-        # Target position (normalized)
+        # Target: [x, y, theta] (normalized)
+        target = self.target_position
+        # Vamos usar um ângulo fixo para o alvo (0 graus)
+        target_theta = 0.0
         obs.extend([
-            self.norm_pos(self.target_position.x),
-            self.norm_pos(self.target_position.y)
+            self.norm_pos(target.x), 
+            self.norm_pos(target.y),
+            np.deg2rad(target_theta)  # theta em radianos
         ])
 
         return np.array(obs, dtype=np.float32)
 
-
     def _get_commands(self, action):
         """
         Converts the action vector into robot commands for the agent (blue[0]).
-        The action vector is expected to be [v_x, v_y, v_theta], all normalized to [-1, 1].
+        The action vector is expected to be [v_x, v_y, v_theta, kick_v_x, dribbler], all normalized to [-1, 1].
         Returns a list of Robot commands (only the agent is controlled here).
+        Neste primeiro momento, kick_v_x e dribbler são sempre 0, independentemente da ação.
         """
         angle = self.frame.robots_blue[0].theta
-        v_x, v_y, v_theta = self.convert_actions(action, np.deg2rad(angle))
-        return [Robot(yellow=False, id=0, v_x=v_x, v_y=v_y, v_theta=v_theta)]
+        v_x, v_y, v_theta = self.convert_actions(action[:3], np.deg2rad(angle))
+        
+        return [Robot(
+            yellow=False, 
+            id=0, 
+            v_x=v_x, 
+            v_y=v_y, 
+            v_theta=v_theta,
+            kick_v_x=0.0,  # Sempre 0, independentemente da ação
+            dribbler=False  # Sempre False, independentemente da ação
+        )]
         
     def convert_actions(self, action, angle):
         """Denormalize, clip to absolute max and convert to local"""
@@ -210,7 +221,7 @@ class SSLELReachToPoint(SSL_EL_Env):
     def _calculate_reward_and_done(self):
         """
         Calculates the reward and termination condition for the current step.
-        Includes calculation of various metrics for logging and visualization.
+        Simplified reward: reach target + time efficiency penalty
         """
         robot = self.frame.robots_blue[0]
         target = self.target_position
@@ -223,43 +234,7 @@ class SSLELReachToPoint(SSL_EL_Env):
 
         done = False
         self.steps_to_target += 1
-
-        # Calcular métricas adicionais
-        current_position = np.array([robot.x, robot.y], dtype=np.float32)
         
-        if self.position_count > 0:
-            # Calcular distância do último passo usando NumPy
-            last_position = self.positions[self.position_count-1]
-            step_distance = np.linalg.norm(current_position - last_position)
-            self.path_length += step_distance
-        
-        # Armazenar posição atual
-        if self.position_count < self.max_steps:
-            self.positions[self.position_count] = current_position
-            self.position_count += 1
-        
-        # Calcular e armazenar velocidade
-        velocity = np.linalg.norm([robot.v_x, robot.v_y])
-        if self.velocity_count < self.max_steps:
-            self.velocities[self.velocity_count] = velocity
-            self.velocity_count += 1
-        
-        # Calcular e armazenar aceleração
-        if self.velocity_count > 1:
-            acceleration = abs(self.velocities[self.velocity_count-1] - self.velocities[self.velocity_count-2]) / self.time_step
-            if self.acceleration_count < self.max_steps-1:
-                self.accelerations[self.acceleration_count] = acceleration
-                self.acceleration_count += 1
-        
-        # Detectar mudanças de direção usando NumPy
-        if velocity > 0.1:  # Ignorar velocidades muito baixas
-            current_direction = np.arctan2(robot.v_y, robot.v_x)
-            if self.last_velocity_direction is not None:
-                angle_diff = np.abs(np.angle(np.exp(1j * (current_direction - self.last_velocity_direction))))
-                if angle_diff > np.pi/4:  # Mudança de mais de 45 graus
-                    self.direction_changes += 1
-            self.last_velocity_direction = current_direction
-
         # Verificar se o robô saiu do campo
         field_length_half = self.field.length / 2
         field_width_half = self.field.width / 2
@@ -268,18 +243,6 @@ class SSLELReachToPoint(SSL_EL_Env):
             abs(robot.y) > field_width_half
         )
         
-        # Atualizar métricas do episódio
-        final_speed = np.linalg.norm([robot.v_x, robot.v_y])
-        success = dist_to_target < 0.09
-        
-        # Usar apenas os dados válidos para cálculos de média
-        valid_velocities = self.velocities[:self.velocity_count]
-        valid_accelerations = self.accelerations[:self.acceleration_count]
-        
-        avg_velocity = np.mean(valid_velocities) if self.velocity_count > 0 else 0
-        avg_acceleration = np.mean(valid_accelerations) if self.acceleration_count > 0 else 0
-        path_efficiency = self.initial_distance / self.path_length if self.path_length > 0 else 0
-        
         # Verificar condições de término e calcular recompensas
         if out_of_bounds:
             # Penalidade por sair do campo
@@ -287,6 +250,7 @@ class SSLELReachToPoint(SSL_EL_Env):
             done = True
         
         # Verificar se o robô alcançou o alvo
+        success = dist_to_target < 0.09
         if success:
             # Recompensa base por alcançar o alvo
             reward += self.reward_target_reached
@@ -296,26 +260,22 @@ class SSLELReachToPoint(SSL_EL_Env):
             expected_max_steps = self.initial_distance * self.max_steps_per_meter
             
             # Quanto mais rápido o robô chegar (menos passos), maior a recompensa
-            # Normalizamos pela distância inicial para ser justo independente da distância
             if expected_max_steps > 0:
                 time_efficiency = max(0, 1 - (self.steps_to_target / expected_max_steps))
-                time_reward = self.reward_time_factor * time_efficiency
+                time_reward = self.reward_target_reached * time_efficiency
                 reward += time_reward
-            
-            # Penalidade para velocidade final alta
-            reward -= self.penalty_final_speed * final_speed
-            # Penalidade para desaceleração brusca
-            if self.velocity_count > 1:
-                final_acceleration = abs(self.velocities[self.velocity_count-1] - self.velocities[self.velocity_count-2]) / self.time_step
-                reward -= self.penalty_final_acceleration * final_acceleration
             
             done = True
         
         # Verificar se atingiu o número máximo de passos
         if self.steps_to_target >= self.max_steps:
+            reward += self.penalty_timeout  # Penalidade adicional por timeout
             done = True
         
-        # Armazenar métricas completas para logging
+        # Penalidade por cada passo (incentiva o agente a ser mais rápido)
+        reward += self.penalty_per_step
+        
+        # Armazenar métricas para logging
         self.episodes_metrics = {
             'success': success,
             'out_of_bounds': out_of_bounds,
@@ -324,11 +284,6 @@ class SSLELReachToPoint(SSL_EL_Env):
             'final_distance': dist_to_target,
             'steps_to_target': self.steps_to_target,
             'steps_per_meter': self.steps_to_target / self.initial_distance if self.initial_distance > 0 else 0,
-            'path_length': self.path_length,
-            'path_efficiency': path_efficiency,
-            'avg_velocity': avg_velocity,
-            'avg_acceleration': avg_acceleration,
-            'direction_changes': self.direction_changes,
             'episode_reward': reward
         }
         
@@ -336,16 +291,13 @@ class SSLELReachToPoint(SSL_EL_Env):
         info = {}
         if done:
             info['episode_metrics'] = self.episodes_metrics.copy()
-            print(f"[Environment] Episode metrics being returned: {info['episode_metrics']}")  # Debug print
-
+        
         return reward, done
 
     def step(self, action):
         obs, reward, terminated, truncated, info = super().step(action)
         if terminated or truncated:
-            # Certifique-se de que 'episode_metrics' é um dicionário serializável!
             info['episode_metrics'] = self.episodes_metrics.copy()
-            print(f"[Environment] Episode metrics being returned: {info['episode_metrics']}")
         return obs, reward, terminated, truncated, info
 
     def _draw_target(self, target_pos, screen):
@@ -376,11 +328,3 @@ class SSLELReachToPoint(SSL_EL_Env):
         super()._render()
         # Draw the target area as a square
         self._draw_target([self.target_position.x, self.target_position.y], self.window_surface)
-
-        # Print robot velocity if episode is done (or always, if you prefer)
-        robot = self.frame.robots_blue[0]
-        v_x = robot.v_x
-        v_y = robot.v_y
-        v_theta = robot.v_theta
-        speed = np.sqrt(v_x**2 + v_y**2)
-        # print(f"[RENDER] Robot velocity: v_x={v_x:.3f} m/s, v_y={v_y:.3f} m/s, linear speed={speed:.3f} m/s, v_theta={v_theta:.3f} rad/s")
