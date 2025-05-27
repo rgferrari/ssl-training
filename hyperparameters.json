@@ -2,9 +2,10 @@
     "method": "SAC",
     "name": "reacher_point_sac_el",
     "env": "SSLReachToPointEL-v0",
-    "episodes": 500000,
-    "version": "0",
+    "episodes": 2000000,
+    "version": "1",
     "num_envs": 16,
     "batch_size": 1024,
-    "learning_rate": 0.001
+    "learning_rate": 0.001,
+    "model_path" : "models/reacher_point_sac_el/reacher_point_sac_el-v_0.zip"
 }
