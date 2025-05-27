@@ -55,10 +55,13 @@ class SSLELReachToPoint(SSL_EL_Env):
         self.last_velocity_direction = None
 
         # Parâmetros de recompensa
-        self.reward_target_reached = 30.0
+        self.reward_target_reached = 50.0
         self.penalty_out_of_bounds = -20.0
         self.reward_time_factor = 10.0
-        self.max_steps_per_meter = 40.0
+        self.max_steps_per_meter = 12.0
+        self.penalty_final_speed = 10.0
+        self.penalty_final_acceleration = 5.0
+        self.success_speed_threshold = 1.0  # m/s
 
 
         
@@ -266,8 +269,8 @@ class SSLELReachToPoint(SSL_EL_Env):
         )
         
         # Atualizar métricas do episódio
-        success = dist_to_target < 0.18
-        timeout = self.steps >= self.max_steps
+        final_speed = np.linalg.norm([robot.v_x, robot.v_y])
+        success = dist_to_target < 0.09
         
         # Usar apenas os dados válidos para cálculos de média
         valid_velocities = self.velocities[:self.velocity_count]
@@ -299,17 +302,24 @@ class SSLELReachToPoint(SSL_EL_Env):
                 time_reward = self.reward_time_factor * time_efficiency
                 reward += time_reward
             
+            # Penalidade para velocidade final alta
+            reward -= self.penalty_final_speed * final_speed
+            # Penalidade para desaceleração brusca
+            if self.velocity_count > 1:
+                final_acceleration = abs(self.velocities[self.velocity_count-1] - self.velocities[self.velocity_count-2]) / self.time_step
+                reward -= self.penalty_final_acceleration * final_acceleration
+            
             done = True
         
         # Verificar se atingiu o número máximo de passos
-        if timeout:
+        if self.steps_to_target >= self.max_steps:
             done = True
         
         # Armazenar métricas completas para logging
         self.episodes_metrics = {
             'success': success,
             'out_of_bounds': out_of_bounds,
-            'timeout': timeout,
+            'timeout': self.steps_to_target >= self.max_steps,
             'initial_distance': self.initial_distance,
             'final_distance': dist_to_target,
             'steps_to_target': self.steps_to_target,

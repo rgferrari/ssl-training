@@ -6,3 +6,5 @@ rSoccer/
 ssl-training-venv
 .vscode/
 __pycache__/
+
+metrics/
