@@ -55,10 +55,10 @@ class SSLELReachToPoint(SSL_EL_Env):
         self.last_velocity_direction = None
 
         # Parâmetros de recompensa
-        self.reward_target_reached = 10
-        self.penalty_out_of_bounds = -20
-        self.reward_time_factor = 5.0
-        self.max_steps_per_meter = 40
+        self.reward_target_reached = 30.0
+        self.penalty_out_of_bounds = -20.0
+        self.reward_time_factor = 10.0
+        self.max_steps_per_meter = 40.0
 
 
         
@@ -266,7 +266,7 @@ class SSLELReachToPoint(SSL_EL_Env):
         )
         
         # Atualizar métricas do episódio
-        success = dist_to_target < 0.1
+        success = dist_to_target < 0.18
         timeout = self.steps >= self.max_steps
         
         # Usar apenas os dados válidos para cálculos de média

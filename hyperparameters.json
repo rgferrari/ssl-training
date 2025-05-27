@@ -2,7 +2,7 @@
     "method": "SAC",
     "name": "reacher_point_sac_el",
     "env": "SSLReachToPointEL-v0",
-    "episodes": 10000,
+    "episodes": 200000,
     "version": "0",
     "num_envs": 16,
     "batch_size": 1024,

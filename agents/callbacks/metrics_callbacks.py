@@ -5,9 +5,10 @@ import os
 from datetime import datetime
 
 class MetricsCallback(BaseCallback):
-    def __init__(self, log_dir, verbose=0):
+    def __init__(self, log_dir, save_every=100, verbose=0):
         super().__init__(verbose)
         self.log_dir = log_dir
+        self.save_every = save_every
         print(f"[MetricsCallback] Initializing with log_dir: {log_dir}")
         
         self.episode_metrics = {
@@ -39,17 +40,40 @@ class MetricsCallback(BaseCallback):
         for info in infos:
             if "episode_metrics" in info:
                 metrics = info["episode_metrics"]
-                # Converta tudo para float/int aqui!
-                self.episode_metrics['rewards'].append(float(metrics.get('episode_reward', 0)))
-                self.episode_metrics['success_rate'].append(1 if metrics.get('success', False) else 0)
-                self.episode_metrics['out_of_bounds_rate'].append(1 if metrics.get('out_of_bounds', False) else 0)
-                self.episode_metrics['timeout_rate'].append(1 if metrics.get('timeout', False) else 0)
-                self.episode_metrics['final_distances'].append(float(metrics.get('final_distance', 0)))
+                # Converta para tipos nativos
+                reward = float(metrics.get('episode_reward', 0))
+                success = 1 if metrics.get('success', False) else 0
+                out_of_bounds = 1 if metrics.get('out_of_bounds', False) else 0
+                final_distance = float(metrics.get('final_distance', 0))
+                timeout = 1 if metrics.get('timeout', False) else 0
+
+                # Salve no histórico (para o JSON)
+                self.episode_metrics['rewards'].append(reward)
+                self.episode_metrics['success_rate'].append(success)
+                self.episode_metrics['out_of_bounds_rate'].append(out_of_bounds)
+                self.episode_metrics['timeout_rate'].append(timeout)
+                self.episode_metrics['final_distances'].append(final_distance)
                 self.episode_metrics['steps_to_target'].append(int(metrics.get('steps_to_target', 0)))
                 self.episode_metrics['path_efficiency'].append(float(metrics.get('path_efficiency', 0)))
                 self.episode_metrics['avg_velocity'].append(float(metrics.get('avg_velocity', 0)))
                 self.episode_metrics['avg_acceleration'].append(float(metrics.get('avg_acceleration', 0)))
                 self.episode_metrics['direction_changes'].append(int(metrics.get('direction_changes', 0)))
+
+                # Salve cada valor individualmente no TensorBoard
+                if self.logger is not None:
+                    self.logger.record('metrics/episode_reward', reward)
+                    self.logger.record('metrics/success', success)
+                    self.logger.record('metrics/out_of_bounds', out_of_bounds)
+                    self.logger.record('metrics/timeout', timeout)
+                    self.logger.record('metrics/final_distance', final_distance)
+                    self.logger.record('metrics/steps_to_target', int(metrics.get('steps_to_target', 0)))
+                    self.logger.record('metrics/path_efficiency', float(metrics.get('path_efficiency', 0)))
+                    self.logger.record('metrics/avg_velocity', float(metrics.get('avg_velocity', 0)))
+                    self.logger.record('metrics/avg_acceleration', float(metrics.get('avg_acceleration', 0)))
+                    self.logger.record('metrics/direction_changes', int(metrics.get('direction_changes', 0)))
+        # Salva a cada N episódios
+        if len(self.episode_metrics['rewards']) % self.save_every == 0 and len(self.episode_metrics['rewards']) > 0:
+            self._save_metrics()
         return True
 
     def _on_rollout_end(self) -> None:
@@ -74,17 +98,26 @@ class MetricsCallback(BaseCallback):
                     self.episode_metrics['avg_acceleration'].append(float(metrics.get('avg_acceleration', 0)))
                     self.episode_metrics['direction_changes'].append(int(metrics.get('direction_changes', 0)))
             
-            # Salvar métricas a cada 100 episódios
-            if len(self.episode_metrics['rewards']) % 100 == 0:
-                self._save_metrics()
-            
             # Registrar no TensorBoard
             self._log_metrics_to_tensorboard()
 
+    def _on_training_end(self) -> None:
+        # Salva ao final do treinamento também
+        self._save_metrics()
+
     def _save_metrics(self):
-        print(f"[MetricsCallback] Saving metrics to {self.metrics_file}")
         stats = {
             'episodes': len(self.episode_metrics['rewards']),
+            'rewards': self.episode_metrics['rewards'],  # Histórico completo
+            'success_rate': self.episode_metrics['success_rate'],
+            'out_of_bounds_rate': self.episode_metrics['out_of_bounds_rate'],
+            'timeout_rate': self.episode_metrics['timeout_rate'],
+            'final_distances': self.episode_metrics['final_distances'],
+            'steps_to_target': self.episode_metrics['steps_to_target'],
+            'path_efficiency': self.episode_metrics['path_efficiency'],
+            'avg_velocity': self.episode_metrics['avg_velocity'],
+            'avg_acceleration': self.episode_metrics['avg_acceleration'],
+            'direction_changes': self.episode_metrics['direction_changes'],
             'mean_reward': float(np.mean(self.episode_metrics['rewards'])) if self.episode_metrics['rewards'] else 0.0,
             'std_reward': float(np.std(self.episode_metrics['rewards'])) if self.episode_metrics['rewards'] else 0.0,
             'success_rate': float(np.mean(self.episode_metrics['success_rate'])) if self.episode_metrics['success_rate'] else 0.0,
@@ -100,7 +133,7 @@ class MetricsCallback(BaseCallback):
         
         with open(self.metrics_file, 'w') as f:
             json.dump(stats, f, indent=4)
-        print(f"[MetricsCallback] Metrics saved successfully")
+        print(f"[MetricsCallback] Metrics saved to {self.metrics_file}")
 
     def _log_metrics_to_tensorboard(self):
         if self.logger is not None:
