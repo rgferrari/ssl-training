@@ -59,10 +59,10 @@ class SACAgent(AgentBase):
             deterministic=True,
             render=False,
         )
-        
+
         metrics_callback = MetricsCallback(self.log_dir)
         print("[SACAgent] MetricsCallback created")  # Debug print
-        
+
         callbacks = [eval_callback, metrics_callback]
 
         model.learn(total_timesteps=episodes, progress_bar=True, callback=callbacks)

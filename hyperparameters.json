@@ -1,11 +1,11 @@
 {
-    "method": "SAC",
-    "name": "reacher_point_sac_el",
-    "env": "SSLReachToPointEL-v0",
-    "episodes": 2000000,
-    "version": "1",
-    "num_envs": 16,
-    "batch_size": 1024,
-    "learning_rate": 0.001,
-    "model_path" : "models/reacher_point_sac_el/reacher_point_sac_el-v_0.zip"
+  "method": "SAC",
+  "name": "reacher_pose-el",
+  "env": "SSLReachToPose-v0",
+  "episodes": 1000000,
+  "version": "0",
+  "num_envs": 16,
+  "batch_size": 256,
+  "learning_rate": 5e-4,
+  "model_path": "models/reacher_pose-el/reacher_pose-el-v_0.zip"
 }

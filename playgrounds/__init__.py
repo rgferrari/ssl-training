@@ -2,7 +2,8 @@ from playgrounds.rotate_to_ball import SSLRotateToBallEnv
 from playgrounds.reach_ball import SSLReachBallEnv
 from playgrounds.drive_ball import SSLDriveBallEnv
 from playgrounds.reach_ball_el import SSLELReachBallEnv
-from playgrounds.reach_to_point_el import SSLELReachToPoint
+from playgrounds.goalkeeper_el import SSLELGoalkeeperEnv
+from playgrounds.go_to_pose_el import SSLGoToPoseEnv
 from gymnasium.envs.registration import register
 
 register(
@@ -33,5 +34,11 @@ register(
 register(
     id="SSLReachToPointEL-v0",
     entry_point="playgrounds:SSLELReachToPoint",
-    max_episode_steps=1200, 
+    max_episode_steps=1200,
+)
+
+register(
+    id="SSLReachToPose-v0",
+    entry_point="playgrounds:SSLGoToPoseEnv",
+    max_episode_steps=1200,
 )

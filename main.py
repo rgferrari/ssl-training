@@ -5,6 +5,9 @@ import agents
 
 methods = {
     "SAC": agents.SACAgent,
+    # "PPO": agents.PPOAgent,
+    # "DDPG": agents.DDPGAgent,
+    # "TD3": agents.TD3Agent,
 }
 
 def main():
@@ -21,7 +24,7 @@ def main():
     parser.add_argument("-bs", "--batch_size", type=int, help="Batch size for training")
     parser.add_argument("-lr", "--learning_rate", type=float, help="Learning rate for the optimizer")
     args = parser.parse_args()
-    
+
 
     # Fill empty args if json file is provided
     if args.json:
@@ -32,20 +35,20 @@ def main():
                 setattr(args, key, value)
 
     required_args_training = [
-        "method", 
-        "name", 
-        "env", 
-        "version", 
-        "episodes", 
-        "num_envs", 
-        "batch_size", 
+        "method",
+        "name",
+        "env",
+        "version",
+        "episodes",
+        "num_envs",
+        "batch_size",
         "learning_rate"
     ]
 
     required_args_eval = [
-        "method", 
-        "name", 
-        "env", 
+        "method",
+        "name",
+        "env",
         "version"
     ]
 
@@ -71,9 +74,9 @@ def main():
     )
 
     if args.train:
-        agent.train(episodes=args.episodes, 
-                    model_path=args.model_path, 
-                    num_envs=args.num_envs, 
+        agent.train(episodes=args.episodes,
+                    model_path=args.model_path,
+                    num_envs=args.num_envs,
                     batch_size=args.batch_size,
                     learning_rate=args.learning_rate)
     agent.eval()

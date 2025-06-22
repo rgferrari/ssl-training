@@ -24,6 +24,25 @@ class SSLELRenderField(SSLRenderField):
     corner_arc_r = 0.01
     _scale = 100  # Escala para renderização (ajuste conforme necessário)
 
+    def pos_to_screen(self, x, y):
+        """
+        Converte uma posição do mundo (metros) para uma posição na tela (pixels).
+
+        Args:
+            x (float): Coordenada x no mundo (metros).
+            y (float): Coordenada y no mundo (metros).
+
+        Returns:
+            tuple: Uma tupla (x_s, y_s) com as coordenadas em pixels.
+        """
+        # self.center_x e self.center_y são inicializados na classe pai SSLRenderField
+        x_s = self.center_x + x * self.scale
+        y_s = self.center_y - y * self.scale  # O eixo Y do Pygame é invertido (cresce para baixo)
+        return x_s, y_s
+
+
+
+
 
 if __name__ == "__main__":
     field = Sim2DRenderField()
