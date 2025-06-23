@@ -96,7 +96,7 @@ class SSLGoToPoseEnv(SSL_EL_Env):
 
         # Parâmetros do ambiente
         self.max_steps = max_episode_steps
-        self.position_tolerance = 0.1
+        self.position_tolerance = 0.25
         self.angular_tolerance = np.deg2rad(15)
         # Distância máxima para normalização correta
         self.max_field_dist = np.sqrt(self.field.length**2 + self.field.width**2)

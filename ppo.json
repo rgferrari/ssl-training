@@ -2,8 +2,8 @@
   "method": "PPO",
   "name": "reacher_pose_PPO-el",
   "env": "SSLReachToPose-v0",
-  "episodes": 500000,
-  "version": "3",
+  "episodes": 100000,
+  "version": "4",
   "num_envs": 16,
   "learning_rate": 0.0003,
   "n_steps": 2048,
@@ -12,5 +12,5 @@
   "gamma": 0.99,
   "gae_lambda": 0.95,
   "clip_range": 0.2,
-  "model_path": "models/reacher_pose_PPO-el/reacher_pose_PPO-el-v_2.zip"
+  "model_path": "models/reacher_pose_PPO-el/reacher_pose_PPO-el-v_3.zip"
 }

@@ -21,7 +21,7 @@ class PPOAgent(AgentBase):
         Treina o agente PPO usando hiperparâmetros passados via kwargs.
         """
         # Extrai os hiperparâmetros do kwargs com valores padrão
-        total_timesteps = kwargs.get("total_timesteps",500_000)
+        total_timesteps = kwargs.get("total_timesteps",100_000)
         model_path = kwargs.get("model_path", None)
         num_envs = kwargs.get("num_envs", 16)
         learning_rate = kwargs.get("learning_rate", 3e-4)
