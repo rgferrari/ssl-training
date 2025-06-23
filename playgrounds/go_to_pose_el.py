@@ -75,7 +75,7 @@ class SSLGoToPoseEnv(SSL_EL_Env):
         - Após max_steps (falha)
     """
 
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, max_episode_steps=1200):
         super().__init__(render_mode=render_mode, n_robots_blue=1, n_robots_yellow=0)
 
         # Configuração dos espaços
@@ -95,9 +95,9 @@ class SSLGoToPoseEnv(SSL_EL_Env):
         self.max_w = 10.0
 
         # Parâmetros do ambiente
-        self.max_steps = 1200
+        self.max_steps = max_episode_steps
         self.position_tolerance = 0.1
-        self.angular_tolerance = 0.1
+        self.angular_tolerance = np.deg2rad(15)
         # Distância máxima para normalização correta
         self.max_field_dist = np.sqrt(self.field.length**2 + self.field.width**2)
 
@@ -321,7 +321,7 @@ class SSLGoToPoseEnv(SSL_EL_Env):
         # 1. Saiu dos limites
         if self._is_out_of_bounds(robot):
             done = True
-            reward = -5.0  # Penalidade por sair do campo
+            reward -= 10.0 # Penalidade por sair do campo
             return reward, done
 
         # 2. Atingiu o alvo (GRANDE RECOMPENSA)
@@ -329,7 +329,7 @@ class SSLGoToPoseEnv(SSL_EL_Env):
                 angular_distance < self.angular_tolerance):
             done = True
             # Recompensa baseada no tempo, o prêmio principal!
-            reward = 500.0 * (1.0 - (self.steps / self.max_steps))
+            reward = 300.0 * (1.0 - (self.steps / self.max_steps))
             return reward, done
 
         # 3. Timeout (Prêmio de Consolação por Proximidade)
@@ -357,15 +357,15 @@ class SSLGoToPoseEnv(SSL_EL_Env):
         # Atualiza a distância anterior para o próximo passo
         self.previous_distance = position_distance
 
-        # Uma pequena penalidade constante por passo para incentivar a rapidez
         reward -= 0.01
 
+        # Uma pequena penalidade constante por passo para incentivar a rapidez
         return reward, done
     def _is_out_of_bounds(self, robot):
         """Verifica se o robô saiu dos limites do campo"""
         x_limit = self.field.length / 2
         y_limit = self.field.width / 2
-        return abs(robot.x) > x_limit or abs(robot.y) > y_limit
+        return abs(robot.x) > (x_limit + 0.2) or abs(robot.y) > (y_limit + 0.2)
 
     def _get_initial_positions_frame(self) -> Frame:
         """Define as posições iniciais"""
